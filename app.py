@@ -4,47 +4,68 @@ import re
 import pdfplumber
 from thefuzz import process, fuzz
 
-# 1. Page Configuration & UI
-st.set_page_config(page_title="OPay Statement Analyzer", layout="wide")
+# ==========================================
+# PAGE CONFIGURATION & CUSTOM CSS
+# ==========================================
+st.set_page_config(page_title="OPay Statement Analyzer", layout="wide", page_icon="🟢")
+
+# Injecting Custom CSS
+st.markdown("""
+
+<style>
+    /* Style the top metric cards */
+    div[data-testid="metric-container"] {
+        background-color: #f7f9fc;
+        border: 1px solid #e2e8f0;
+        padding: 5% 10% 5% 10%;
+        border-radius: 10px;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+    }
+    /* Change the color of the positive/negative Net Flow */
+    div[data-testid="stMetricDelta"] > div {
+        font-size: 1.2rem !important;
+    }
+    /* Main Title Styling */
+    h1 {
+        color: #00b578; /* OPay Green */
+        font-weight: 800;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🟢 OPay Statement Analyzer")
-st.write("Upload your OPay Excel statement to instantly see your cash flow and transaction notes.")
+st.markdown("Upload your OPay Excel statement to instantly see your cash flow and transaction notes.")
+st.caption("🔒 **PRIVACY FIRST:** Your file is processed securely in temporary server memory. It is never saved, stored, or viewed by anyone, and is permanently deleted the moment you close this page.")
+st.divider() 
 
 # ==========================================
-# THE OPAY-ONLY INTAKE MANIFOLD
+# INTAKE MANIFOLD
 # ==========================================
 def extract_from_pdf(file_obj):
     records = []
     with pdfplumber.open(file_obj) as pdf:
         full_text = " ".join([str(page.extract_text()).replace('\n', ' ') for page in pdf.pages])
         
-    # OPay Date Trigger (e.g., 28 Jan 2026)
     chunks = re.split(r'(?=\b\d{2} [A-Z][a-z]{2} \d{4}\b)', full_text)
     
     for chunk in chunks:
-        if not chunk.strip() or re.search(r'(?i)(date/time|balance after|owealth\b)', chunk):
-            continue
-            
+        if not chunk.strip() or re.search(r'(?i)(date/time|balance after|owealth\b)', chunk): continue
         amounts = re.findall(r'\b\d+(?:[.,]\d{3})*[.,]\d{2}\b', chunk)
         if not amounts: continue
         
-        # OPay Direction Heuristics
         is_outflow = True
-        if re.search(r'(?i)(transfer from)', chunk):
-            is_outflow = False
+        if re.search(r'(?i)(transfer from)', chunk): is_outflow = False
             
         raw_amount = amounts[0]
         actual_amount = float(re.sub(r'[^\d]', '', raw_amount)) / 100.0
         
-        if is_outflow:
-            records.append({'Description': chunk, 'Amount_Out': actual_amount, 'Amount_In': 0.0})
-        else:
-            records.append({'Description': chunk, 'Amount_Out': 0.0, 'Amount_In': actual_amount})
+        if is_outflow: records.append({'Description': chunk, 'Amount_Out': actual_amount, 'Amount_In': 0.0})
+        else: records.append({'Description': chunk, 'Amount_Out': 0.0, 'Amount_In': actual_amount})
             
     return pd.DataFrame(records)
 
 def extract_from_excel(file_obj, filename):
     df_raw = pd.read_csv(file_obj, header=None) if filename.endswith('.csv') else pd.read_excel(file_obj, header=None)
-    
     header_idx = 0
     for i, row in df_raw.iterrows():
         if re.search(r'(?i)(desc|narration|remark|particular)', " ".join([str(cell).lower() for cell in row.values])):
@@ -54,7 +75,6 @@ def extract_from_excel(file_obj, filename):
     file_obj.seek(0)
     df = pd.read_csv(file_obj, header=header_idx) if filename.endswith('.csv') else pd.read_excel(file_obj, header=header_idx)
 
-    # Fuzzy match standard OPay columns
     col_desc = next((c for c in df.columns if 'desc' in str(c).lower()), None)
     col_out = next((c for c in df.columns if 'debit' in str(c).lower()), None)
     col_in = next((c for c in df.columns if 'credit' in str(c).lower()), None)
@@ -82,32 +102,18 @@ def extract_opay_details(text):
     name = "Other"
     narration = "General"
     
-    # OPay standard format: Action Name | Bank | User Narration
-    # We use regex to split the string based on those pipe "|" characters
     m = re.search(r'(?:Transfer to|Transfer from|POS Transfer-)\s*(.*?)\s*\|\s*(.*?)\s*(?:\|(.*))?', text, re.IGNORECASE)
     
     if m:
         name = m.group(1).strip().title()
-        # If there is a 3rd section after the pipes, it's the user's custom note
         if m.group(3) and m.group(3).strip():
             narration = m.group(3).strip().title()
     else:
-        # Catch OPay internal transactions
-        if 'Sporty' in text or 'Betting' in text:
-            name = "Betting (SportyBet)"
-            narration = "Gaming/Betting"
-        elif 'Airtime' in text:
-            name = "Airtime Purchase"
-            narration = "Airtime"
-        elif 'Data' in text:
-            name = "Mobile Data"
-            narration = "Internet Data"
-        elif 'Stamp Duty' in text:
-            name = "FGN Stamp Duty"
-            narration = "Bank Charges"
-        elif 'Google Play' in text:
-            name = "Google Play"
-            narration = "App Subscription"
+        if 'Sporty' in text or 'Betting' in text: return pd.Series(["Betting (SportyBet)", "Gaming/Betting"])
+        elif 'Airtime' in text: return pd.Series(["Airtime Purchase", "Airtime"])
+        elif 'Data' in text: return pd.Series(["Mobile Data", "Internet Data"])
+        elif 'Stamp Duty' in text: return pd.Series(["FGN Stamp Duty", "Bank Charges"])
+        elif 'Google Play' in text: return pd.Series(["Google Play", "App Subscription"])
 
     return pd.Series([name, narration])
 
@@ -128,10 +134,9 @@ def resolve_identities(names, threshold=85):
     return names.map(mapping)
 
 # ==========================================
-# ==========================================
 # THE WEB DASHBOARD
 # ==========================================
-uploaded_file = st.file_uploader("Drop your OPay Statement here (PDF, XLSX, CSV)", type=['pdf', 'xlsx', 'csv'])
+uploaded_file = st.file_uploader("Drop your OPay Statement here (XLSX, CSV)", type=['xlsx', 'csv'])
 
 if uploaded_file is not None:
     with st.spinner('Parsing OPay Telemetry...'):
@@ -142,51 +147,61 @@ if uploaded_file is not None:
             df = extract_from_excel(uploaded_file, uploaded_file.name)
             
         if not df.empty:
-            # Run the Y-Pipe
             df[['Raw_Name', 'Narration']] = df['Description'].apply(extract_opay_details)
             df['Clean_Name'] = resolve_identities(df['Raw_Name'])
             
             # Aggregate the Math
             summary_out = df[df['Amount_Out'] > 0].groupby('Clean_Name')['Amount_Out'].sum().reset_index().sort_values(by='Amount_Out', ascending=False)
             summary_in = df[df['Amount_In'] > 0].groupby('Clean_Name')['Amount_In'].sum().reset_index().sort_values(by='Amount_In', ascending=False)
-            
-            # 3rd Column: Spending by Narration
             summary_narration = df.groupby('Narration')[['Amount_Out', 'Amount_In']].sum().reset_index()
             summary_narration = summary_narration[(summary_narration['Amount_Out'] > 0) | (summary_narration['Amount_In'] > 0)].sort_values(by='Amount_Out', ascending=False)
 
-            # ==========================================
-            # THE TOTAL ROWS
-            # ==========================================
-            # Total for Money OUT
-            total_out = pd.DataFrame([{'Clean_Name': '🛑 TOTAL', 'Amount_Out': summary_out['Amount_Out'].sum()}])
-            summary_out = pd.concat([summary_out, total_out], ignore_index=True)
-
-            # Total for Money IN
-            total_in = pd.DataFrame([{'Clean_Name': '🛑 TOTAL', 'Amount_In': summary_in['Amount_In'].sum()}])
-            summary_in = pd.concat([summary_in, total_in], ignore_index=True)
-
-            # Total for Narration
-            total_narration = pd.DataFrame([{
-                'Narration': '🛑 TOTAL', 
-                'Amount_Out': summary_narration['Amount_Out'].sum(), 
-                'Amount_In': summary_narration['Amount_In'].sum()
-            }])
-            summary_narration = pd.concat([summary_narration, total_narration], ignore_index=True)
+            
+            # Calculate Top-Level Variables for the KPI Dashboard
+            total_money_in = summary_in['Amount_In'].sum()
+            total_money_out = summary_out['Amount_Out'].sum()
+            net_flow = total_money_in - total_money_out
+            
+            if net_flow < 0:
+                delta_str = f"-₦{abs(net_flow):,.2f}"
+            else:
+                delta_str = f"₦{net_flow:,.2f}"
 
             st.success("✅ OPay Analysis Complete!")
             
+            # --- KPI DASHBOARD UI ---
+            st.markdown("### 📊 Account Summary")
+            kpi1, kpi2, kpi3 = st.columns(3)
+            kpi1.metric("💰 Total Money IN", f"₦{total_money_in:,.2f}")
+            kpi2.metric("💸 Total Money OUT", f"₦{total_money_out:,.2f}")
+            kpi3.metric("⚖️ Net Cash Flow", f"₦{net_flow:,.2f}", delta=delta_str)
+            st.divider() # Separates KPIs from the tables
+            
+            # THE TOTAL ROWS
+            total_out_df = pd.DataFrame([{'Clean_Name': '🛑 TOTAL', 'Amount_Out': total_money_out}])
+            summary_out = pd.concat([summary_out, total_out_df], ignore_index=True)
+
+            total_in_df = pd.DataFrame([{'Clean_Name': '🛑 TOTAL', 'Amount_In': total_money_in}])
+            summary_in = pd.concat([summary_in, total_in_df], ignore_index=True)
+
+            total_narration_df = pd.DataFrame([{'Narration': '🛑 TOTAL', 'Amount_Out': summary_narration['Amount_Out'].sum(), 'Amount_In': summary_narration['Amount_In'].sum()}])
+            summary_narration = pd.concat([summary_narration, total_narration_df], ignore_index=True)
+
+            # --- RENDER FORMATTED TABLES ---
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.subheader("💸 Money OUT")
-                st.dataframe(summary_out, hide_index=True, use_container_width=True)
+                # Format specific column as Naira
+                st.dataframe(summary_out.style.format({'Amount_Out': '₦{:,.2f}'}), hide_index=True, use_container_width=True)
                 
             with col2:
                 st.subheader("💰 Money IN")
-                st.dataframe(summary_in, hide_index=True, use_container_width=True)
+                st.dataframe(summary_in.style.format({'Amount_In': '₦{:,.2f}'}), hide_index=True, use_container_width=True)
                 
             with col3:
                 st.subheader("📝 Spending by Narration")
-                st.dataframe(summary_narration, hide_index=True, use_container_width=True)
+                st.dataframe(summary_narration.style.format({'Amount_Out': '₦{:,.2f}', 'Amount_In': '₦{:,.2f}'}), hide_index=True, use_container_width=True)
+                
         else:
             st.error("Engine Stalled: Could not find valid OPay transactions.")
