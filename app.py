@@ -75,7 +75,7 @@ def extract_from_excel(file_obj, filename):
     return df
 
 # ==========================================
-# 3. THE OPAY Y-PIPE (Name & Narration Splitter)
+# THE OPAY Y-PIPE (Name & Narration Splitter)
 # ==========================================
 def extract_opay_details(text):
     text = str(text).replace('\n', ' ')
@@ -128,6 +128,7 @@ def resolve_identities(names, threshold=85):
     return names.map(mapping)
 
 # ==========================================
+# ==========================================
 # THE WEB DASHBOARD
 # ==========================================
 uploaded_file = st.file_uploader("Drop your OPay Statement here (PDF, XLSX, CSV)", type=['pdf', 'xlsx', 'csv'])
@@ -153,16 +154,35 @@ if uploaded_file is not None:
             summary_narration = df.groupby('Narration')[['Amount_Out', 'Amount_In']].sum().reset_index()
             summary_narration = summary_narration[(summary_narration['Amount_Out'] > 0) | (summary_narration['Amount_In'] > 0)].sort_values(by='Amount_Out', ascending=False)
 
+            # ==========================================
+            # THE TOTAL ROWS
+            # ==========================================
+            # Total for Money OUT
+            total_out = pd.DataFrame([{'Clean_Name': '🛑 TOTAL', 'Amount_Out': summary_out['Amount_Out'].sum()}])
+            summary_out = pd.concat([summary_out, total_out], ignore_index=True)
+
+            # Total for Money IN
+            total_in = pd.DataFrame([{'Clean_Name': '🛑 TOTAL', 'Amount_In': summary_in['Amount_In'].sum()}])
+            summary_in = pd.concat([summary_in, total_in], ignore_index=True)
+
+            # Total for Narration
+            total_narration = pd.DataFrame([{
+                'Narration': '🛑 TOTAL', 
+                'Amount_Out': summary_narration['Amount_Out'].sum(), 
+                'Amount_In': summary_narration['Amount_In'].sum()
+            }])
+            summary_narration = pd.concat([summary_narration, total_narration], ignore_index=True)
+
             st.success("✅ OPay Analysis Complete!")
             
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.subheader("💸 Top Recipients")
+                st.subheader("💸 Money OUT")
                 st.dataframe(summary_out, hide_index=True, use_container_width=True)
                 
             with col2:
-                st.subheader("💰 Top Senders")
+                st.subheader("💰 Money IN")
                 st.dataframe(summary_in, hide_index=True, use_container_width=True)
                 
             with col3:
