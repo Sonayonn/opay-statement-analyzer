@@ -7,32 +7,73 @@ import plotly.express as px
 import io
 
 # ==========================================
-# PAGE CONFIGURATION & CSS
+# 1. PAGE CONFIGURATION & DYNAMIC CSS
 # ==========================================
 st.set_page_config(page_title="OPay Analyzer", layout="wide", page_icon="🟢")
 
 st.markdown("""
 <style>
-    .stApp { background-color: #f8fafc; }
+    /* Use Streamlit's dynamic theme variables instead of hardcoded hex colors */
+    .stApp { background-color: var(--secondary-background-color); }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .main-title { color: #0f172a; font-weight: 900; font-size: 2.5rem; letter-spacing: -1px; margin-bottom: 0px; padding-top: 1rem; }
+    
+    .main-title { 
+        color: var(--text-color); 
+        font-weight: 900; 
+        font-size: 2.5rem; 
+        letter-spacing: -1px; 
+        margin-bottom: 0px; 
+        padding-top: 1rem; 
+    }
     .opay-green { color: #00b578; }
-    .fintech-card { background-color: #ffffff; padding: 24px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; margin-bottom: 1rem; }
-    .fintech-card:hover { transform: translateY(-4px); box-shadow: 0 12px 20px -3px rgba(0,0,0,0.08); }
-    .card-title { color: #64748b; font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .card-value { color: #0f172a; font-size: 2.2rem; font-weight: 800; }
-    .delta-positive { color: #10b981; font-weight: 600; font-size: 0.95rem; margin-top: 8px; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;}
-    .delta-negative { color: #ef4444; font-weight: 600; font-size: 0.95rem; margin-top: 8px; background: #fee2e2; padding: 4px 8px; border-radius: 6px; display: inline-block;}
-    .table-header { color: #1e293b; font-weight: 800; font-size: 1.2rem; padding-top: 1.5rem; padding-bottom: 0.5rem; }
+    
+    .fintech-card { 
+        background-color: var(--background-color); 
+        padding: 24px; 
+        border-radius: 16px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        border: 1px solid var(--secondary-background-color); 
+        transition: transform 0.2s, box-shadow 0.2s; 
+        margin-bottom: 1rem; 
+    }
+    .fintech-card:hover { 
+        transform: translateY(-4px); 
+        box-shadow: 0 12px 20px -3px rgba(0,0,0,0.15); 
+    }
+    
+    .card-title { 
+        color: #64748b; 
+        font-size: 0.95rem; 
+        font-weight: 700; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px; 
+        margin-bottom: 8px; 
+    }
+    .card-value { 
+        color: var(--text-color); 
+        font-size: 2.2rem; 
+        font-weight: 800; 
+    }
+    
+    /* Using rgba backgrounds so the delta chips look good in both Dark and Light mode */
+    .delta-positive { color: #10b981; font-weight: 600; font-size: 0.95rem; margin-top: 8px; background: rgba(16, 185, 129, 0.1); padding: 4px 8px; border-radius: 6px; display: inline-block;}
+    .delta-negative { color: #ef4444; font-weight: 600; font-size: 0.95rem; margin-top: 8px; background: rgba(239, 68, 68, 0.1); padding: 4px 8px; border-radius: 6px; display: inline-block;}
+    
+    .table-header { 
+        color: var(--text-color); 
+        font-weight: 800; 
+        font-size: 1.2rem; 
+        padding-top: 1.5rem; 
+        padding-bottom: 0.5rem; 
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<div class='main-title'><span class='opay-green'>OPay</span> Statement Analyzer</div>", unsafe_allow_html=True)
 st.markdown("<p style='color: #64748b; font-size: 1.1rem;'>Instantly visualize your cash flow, transaction frequencies, and spending habits.</p>", unsafe_allow_html=True)
 st.write("")
-
 # ==========================================
 # OPAY INTAKE MANIFOLD
 # ==========================================
@@ -281,3 +322,4 @@ if uploaded_file is not None:
                 
         else:
             st.error("Engine Stalled: Could not find valid OPay transactions.")
+
