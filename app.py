@@ -362,3 +362,26 @@ if uploaded_file is not None:
                 
         else:
             st.error("Engine Stalled: Could not find valid transactions.")
+            
+# ==========================================
+# FOOTER / CONTACT SECTION
+# ==========================================
+st.write("") 
+st.divider() 
+
+st.markdown("""
+<div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+    <h3 style="color: var(--text-color); font-weight: 800;">Get in Touch</h3>
+    <p style="color: #64748b; font-size: 1.05rem;">
+        Got feedback, found a bug, or need a custom analytics solution? Let's connect!
+    </p>
+    <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+        <a href="https://wa.me/+2349071414531" target="_blank" style="text-decoration: none; padding: 10px 24px; background-color: #25D366; color: white; border-radius: 8px; font-weight: 700; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(37, 211, 102, 0.2); transition: transform 0.2s;">
+            💬 WhatsApp Me
+        </a>
+        <a href="https://x.com/@gutss0x" target="_blank" style="text-decoration: none; padding: 10px 24px; background-color: #0F1419; color: white; border-radius: 8px; font-weight: 700; font-size: 1rem; border: 1px solid #333; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); transition: transform 0.2s;">
+            🐦 Follow on X
+        </a>
+    </div>
+</div>
+""", unsafe_allow_html=True)
